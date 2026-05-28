@@ -1,14 +1,14 @@
 :root {
-  --surface: rgba(255, 252, 247, 0.9);
-  --surface-strong: #fffdf8;
-  --text: #1f2933;
-  --text-soft: #5c6773;
-  --primary: #0f766e;
-  --primary-dark: #115e59;
-  --accent: #d97706;
-  --danger: #c2410c;
-  --border: rgba(17, 24, 39, 0.12);
-  --shadow: 0 18px 45px rgba(31, 41, 51, 0.12);
+  --surface: rgba(255, 255, 255, 0.9);
+  --surface-strong: #ffffff;
+  --text: #102033;
+  --text-soft: #5f7188;
+  --primary: #8b5cf6;       /* Vibrant Purple */
+  --primary-dark: #6d28d9;  /* Vibrant Dark Purple/Violet */
+  --accent: #ec4899;        /* Neon Pink */
+  --danger: #ef4444;        /* Vibrant Red */
+  --border: rgba(139, 92, 246, 0.15);
+  --shadow: 0 18px 45px rgba(139, 92, 246, 0.1);
   --radius-lg: 24px;
   --radius-md: 16px;
 }
@@ -26,9 +26,10 @@ body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.16), transparent 30%),
-    radial-gradient(circle at top right, rgba(217, 119, 6, 0.14), transparent 28%),
-    linear-gradient(180deg, #fcf7ee 0%, #f2e7d4 100%);
+    radial-gradient(circle at top left, rgba(139, 92, 246, 0.18), transparent 35%),
+    radial-gradient(circle at top right, rgba(236, 72, 153, 0.15), transparent 35%),
+    radial-gradient(circle at bottom left, rgba(6, 182, 212, 0.15), transparent 35%),
+    linear-gradient(135deg, #f5f3ff 0%, #fae8ff 50%, #eff6ff 100%);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -91,8 +92,8 @@ img {
 .auth-side {
   padding: 48px;
   background:
-    linear-gradient(150deg, rgba(15, 118, 110, 0.92), rgba(15, 23, 42, 0.88)),
-    linear-gradient(180deg, #0f766e, #1d4ed8);
+    radial-gradient(circle at top right, rgba(250, 204, 21, 0.25), transparent 0 18rem),
+    linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
   color: #f8fafc;
   display: flex;
   flex-direction: column;
@@ -241,8 +242,8 @@ img {
 .landing-option:hover .landing-option__box,
 .landing-option:focus-visible .landing-option__box {
   transform: translateY(-3px) scale(1.02);
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
-  border-color: rgba(15, 118, 110, 0.24);
+  box-shadow: 0 18px 36px rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.24);
 }
 
 .auth-form-area {
@@ -306,8 +307,8 @@ img {
 .field select:focus,
 .field textarea:focus {
   outline: none;
-  border-color: rgba(15, 118, 110, 0.55);
-  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+  border-color: rgba(139, 92, 246, 0.55);
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.12);
 }
 
 .btn,
@@ -324,17 +325,17 @@ img {
 .btn {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: #fff;
-  box-shadow: 0 14px 30px rgba(15, 118, 110, 0.22);
+  box-shadow: 0 14px 30px rgba(139, 92, 246, 0.22);
 }
 
 .btn-secondary {
   background: linear-gradient(135deg, #ea580c, var(--accent));
   color: #fff;
-  box-shadow: 0 14px 30px rgba(217, 119, 6, 0.2);
+  box-shadow: 0 14px 30px rgba(236, 72, 153, 0.2);
 }
 
 .btn-ghost {
-  background: rgba(15, 118, 110, 0.08);
+  background: rgba(139, 92, 246, 0.08);
   color: var(--primary-dark);
 }
 
@@ -405,9 +406,9 @@ img {
 }
 
 .info-banner {
-  background: rgba(15, 118, 110, 0.08);
+  background: rgba(139, 92, 246, 0.08);
   color: var(--primary-dark);
-  border: 1px solid rgba(15, 118, 110, 0.18);
+  border: 1px solid rgba(139, 92, 246, 0.18);
 }
 
 .navbar {
@@ -506,6 +507,43 @@ img {
   align-items: start;
 }
 
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 250px 1fr 300px;
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-grid {
+    grid-template-columns: 240px 1fr;
+  }
+}
+
+@media (max-width: 850px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.feed-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .feed-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  .feed-dashboard-grid .utility-panel-column {
+    display: none !important;
+  }
+}
+
 .panel,
 .feed-card,
 .composer-card {
@@ -546,14 +584,14 @@ img {
 }
 
 .pill {
-  background: rgba(15, 118, 110, 0.08);
+  background: rgba(139, 92, 246, 0.08);
   color: var(--primary-dark);
   font-weight: 700;
 }
 
 .pill.warm {
-  background: rgba(217, 119, 6, 0.12);
-  color: #9a3412;
+  background: rgba(236, 72, 153, 0.12);
+  color: #db2777;
 }
 
 .pill.neutral {

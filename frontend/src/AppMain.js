@@ -9,6 +9,11 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Register from "./pages/Register";
+import GroupsList from "./pages/GroupsList";
+import { LayoutProvider, useLayout } from "./components/LayoutContext";
+import BottomNavCard from "./components/BottomNavCard";
+import SidebarMenu from "./components/SidebarMenu";
+import api from "./services/api";
 import "./App.css";
 import { mergeUserProfile } from "./utils/profile";
 
@@ -25,6 +30,74 @@ const getStoredUser = () => {
     localStorage.removeItem("user");
     return null;
   }
+};
+
+const GlobalCreateModal = () => {
+  const { showCreateModal, setShowCreateModal, triggerGroupRefresh } = useLayout();
+  const [groupName, setGroupName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+
+  if (!showCreateModal) return null;
+
+  const handleCreateGroup = async (event) => {
+    event.preventDefault();
+
+    if (!groupName.trim()) {
+      setCreateError("Group name is required.");
+      return;
+    }
+
+    try {
+      setCreating(true);
+      setCreateError("");
+      await api.post("/groups/create", { groupName: groupName.trim() });
+      setGroupName("");
+      setShowCreateModal(false);
+      triggerGroupRefresh(); // Automatically refreshes groups lists on any page
+    } catch (apiError) {
+      setCreateError(apiError.response?.data?.message || "Unable to create group.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={() => setShowCreateModal(false)} role="presentation">
+      <div className="modal-card" onClick={(event) => event.stopPropagation()} role="dialog">
+        <div className="section-heading">
+          <h2>Create a new study circle</h2>
+        </div>
+
+        <form className="form-grid" onSubmit={handleCreateGroup}>
+          <div className="field">
+            <label htmlFor="groupName">Circle / Group Name</label>
+            <input
+              id="groupName"
+              onChange={(event) => setGroupName(event.target.value)}
+              placeholder="Example: Calculus 101, German B1"
+              value={groupName}
+            />
+          </div>
+
+          {createError ? <div className="error-banner">{createError}</div> : null}
+
+          <div className="form-actions">
+            <button className="btn" disabled={creating} type="submit">
+              {creating ? "Creating..." : "Create Circle"}
+            </button>
+            <button
+              className="btn-ghost"
+              onClick={() => setShowCreateModal(false)}
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 };
 
 function AppMain() {
@@ -71,80 +144,95 @@ function AppMain() {
   };
 
   return (
-    <BrowserRouter>
-      <div className="app-shell">
-        {auth.user ? <StudyNavbar onLogout={handleLogout} user={auth.user} /> : null}
-        <Routes>
-          <Route
-            element={
-              auth.token ? (
-                <Navigate replace to="/home" />
-              ) : (
-                <PageTransition fallback="fade">
-                  <Landing />
-                </PageTransition>
-              )
-            }
-            path="/"
-          />
-          <Route
-            element={
-              auth.token ? (
-                <Navigate replace to="/home" />
-              ) : (
-                <PageTransition fallback="fade">
-                  <Login onLogin={handleLogin} />
-                </PageTransition>
-              )
-            }
-            path="/login/:role"
-          />
-          <Route
-            element={
-              auth.token ? (
-                <Navigate replace to="/home" />
-              ) : (
-                <PageTransition fallback="fade">
-                  <Register onRegister={handleLogin} />
-                </PageTransition>
-              )
-            }
-            path="/register/:role"
-          />
-          <Route
-            element={
-              <ProtectedRoute>
-                <PageTransition fallback="back">
-                  <Home auth={auth} />
-                </PageTransition>
-              </ProtectedRoute>
-            }
-            path="/home"
-          />
-          <Route
-            element={
-              <ProtectedRoute>
-                <PageTransition fallback="forward">
-                  <Group auth={auth} />
-                </PageTransition>
-              </ProtectedRoute>
-            }
-            path="/group/:id"
-          />
-          <Route
-            element={
-              <ProtectedRoute>
-                <PageTransition fallback="forward">
-                  <Profile auth={auth} onUserUpdate={handleUserUpdate} />
-                </PageTransition>
-              </ProtectedRoute>
-            }
-            path="/profile"
-          />
-          <Route element={<Navigate replace to={auth.token ? "/home" : "/"} />} path="*" />
-        </Routes>
-      </div>
-    </BrowserRouter>
+    <LayoutProvider>
+      <BrowserRouter>
+        <div className="app-shell">
+          {auth.user ? <StudyNavbar onLogout={handleLogout} user={auth.user} /> : null}
+          {auth.user ? <SidebarMenu onLogout={handleLogout} user={auth.user} /> : null}
+          {auth.user ? <BottomNavCard /> : null}
+          {auth.user ? <GlobalCreateModal /> : null}
+          <Routes>
+            <Route
+              element={
+                auth.token ? (
+                  <Navigate replace to="/home" />
+                ) : (
+                  <PageTransition fallback="fade">
+                    <Landing />
+                  </PageTransition>
+                )
+              }
+              path="/"
+            />
+            <Route
+              element={
+                auth.token ? (
+                  <Navigate replace to="/home" />
+                ) : (
+                  <PageTransition fallback="fade">
+                    <Login onLogin={handleLogin} />
+                  </PageTransition>
+                )
+              }
+              path="/login/:role"
+            />
+            <Route
+              element={
+                auth.token ? (
+                  <Navigate replace to="/home" />
+                ) : (
+                  <PageTransition fallback="fade">
+                    <Register onRegister={handleLogin} />
+                  </PageTransition>
+                )
+              }
+              path="/register/:role"
+            />
+            <Route
+              element={
+                <ProtectedRoute>
+                  <PageTransition fallback="back">
+                    <Home auth={auth} onLogout={handleLogout} />
+                  </PageTransition>
+                </ProtectedRoute>
+              }
+              path="/home"
+            />
+            <Route
+              element={
+                <ProtectedRoute>
+                  <PageTransition fallback="forward">
+                    <GroupsList auth={auth} onLogout={handleLogout} />
+                  </PageTransition>
+                </ProtectedRoute>
+              }
+              path="/groups"
+            />
+            <Route
+              element={
+                <ProtectedRoute>
+                  <PageTransition fallback="forward">
+                    <Group auth={auth} />
+                  </PageTransition>
+                </ProtectedRoute>
+              }
+              path="/group/:id"
+            />
+            <Route
+              element={
+                <ProtectedRoute>
+                  <PageTransition fallback="forward">
+                    <Profile auth={auth} onUserUpdate={handleUserUpdate} />
+                  </PageTransition>
+                </ProtectedRoute>
+              }
+              path="/profile"
+            />
+            <Route element={<Navigate replace to={auth.token ? "/home" : "/"} />} path="*" />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </LayoutProvider>
   );
 }
 

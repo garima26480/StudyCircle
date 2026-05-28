@@ -7,6 +7,7 @@ const authRoutes = require("./routes/authRoutes");
 const groupRoutes = require("./routes/groupRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const questionRoutes = require("./routes/questionRoutes");
+const publicPostRoutes = require("./routes/publicPostRoutes");
 
 dotenv.config();
 connectDB();
@@ -25,6 +26,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/questions", questionRoutes);
+app.use("/api/public-posts", publicPostRoutes);
 
 // Handles unknown routes with a clean JSON response.
 app.use((req, res) => {
