@@ -106,6 +106,43 @@ export default function DynamicSkyBackground() {
     return liveWeather.condition;
   }, [weatherMode, liveWeather.condition]);
 
+  // Calculate Sun and Moon Coordinates (Orbital Trajectory Math)
+  const celestialCoordinates = useMemo(() => {
+    // We map a coordinate based on the current active hour (0 - 23)
+    let hourVal = currentHour;
+    
+    // If the timeMode is overridden manually, map it to a representative hour
+    if (timeMode === "dawn") hourVal = 6;
+    else if (timeMode === "day") hourVal = 12;
+    else if (timeMode === "dusk") hourVal = 18;
+    else if (timeMode === "night") hourVal = 0;
+
+    // SUN: Visible between 6am (6) and 6pm (18)
+    const isSunVisible = hourVal >= 6 && hourVal < 18;
+    let sunX = 0, sunY = 0;
+    if (isSunVisible) {
+      const pct = (hourVal - 6) / 12; // 0 to 1
+      sunX = 10 + 80 * pct; // 10% to 90% across screen
+      // Parabolic Arc: high in the sky (15% from top) at noon, low at horizon (80%)
+      sunY = 15 + 65 * Math.pow((sunX - 50) / 40, 2);
+    }
+
+    // MOON: Visible between 6pm (18) and 6am (6)
+    const isMoonVisible = hourVal >= 18 || hourVal < 6;
+    let moonX = 0, moonY = 0;
+    if (isMoonVisible) {
+      const adjustedHour = hourVal >= 18 ? hourVal - 18 : hourVal + 6;
+      const pct = adjustedHour / 12; // 0 to 1
+      moonX = 10 + 80 * pct;
+      moonY = 15 + 65 * Math.pow((moonX - 50) / 40, 2);
+    }
+
+    return {
+      sun: { x: sunX, y: sunY, visible: isSunVisible },
+      moon: { x: moonX, y: moonY, visible: isMoonVisible },
+    };
+  }, [timeMode, currentHour]);
+
   // GSAP Weather Transition Morph (smoothly interpolates photographic color-grading)
   useEffect(() => {
     const target = { bright: 1.0, sat: 1.05, contrast: 1.0 };
@@ -394,6 +431,28 @@ export default function DynamicSkyBackground() {
             ))}
           </div>
 
+          {/* Sun Celestial Body */}
+          {backdropMode === "meadow" && celestialCoordinates.sun.visible && (
+            <div
+              className="celestial-body celestial-sun"
+              style={{
+                left: `${celestialCoordinates.sun.x}%`,
+                top: `${celestialCoordinates.sun.y}%`,
+              }}
+            />
+          )}
+
+          {/* Moon Celestial Body */}
+          {backdropMode === "meadow" && celestialCoordinates.moon.visible && (
+            <div
+              className="celestial-body celestial-moon"
+              style={{
+                left: `${celestialCoordinates.moon.x}%`,
+                top: `${celestialCoordinates.moon.y}%`,
+              }}
+            />
+          )}
+
           {/* Meteorological Parallax Clouds */}
           <div className="sky-clouds-container">
             {cloudList.map((cloud) => (
@@ -421,7 +480,7 @@ export default function DynamicSkyBackground() {
             y: mountainTranslateY,
             scale: mountainScale,
             filter: mountainBlur,
-            backgroundImage: `url(${process.env.PUBLIC_URL + "/scenic_backdrop.png"})`
+            backgroundImage: backdropMode === "meadow" ? "none" : `url(${process.env.PUBLIC_URL + "/scenic_backdrop.png"})`
           }}
         >
           {/* Double-mount filter overlay for daylight adjustments */}
@@ -508,43 +567,6 @@ export default function DynamicSkyBackground() {
             ))}
           </div>
 
-          {/* Falling Rain drops */}
-          {resolvedWeather === "rainy" && (
-            <div className="sky-rain-container">
-              {rainList.map((drop) => (
-                <div
-                  key={drop.id}
-                  className="rain-drop"
-                  style={{
-                    left: drop.left,
-                    "--rain-duration": drop.duration,
-                    "--rain-delay": drop.delay
-                  }}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Falling Snow flakes */}
-          {resolvedWeather === "snowy" && (
-            <div className="sky-snow-container">
-              {snowList.map((flake) => (
-                <div
-                  key={flake.id}
-                  className="snow-flake"
-                  style={{
-                    left: flake.left,
-                    width: flake.size,
-                    height: flake.size,
-                    "--snow-duration": flake.duration,
-                    "--snow-delay": flake.delay,
-                    "--drift-offset": flake.drift
-                  }}
-                />
-              ))}
-            </div>
-          )}
-
           {/* Swaying Foreground Meadow Daisies */}
           <div className="scenic-flower-container">
             {/* Daisy 1 */}
@@ -617,6 +639,43 @@ export default function DynamicSkyBackground() {
             </svg>
           </div>
         </motion.div>
+
+        {/* Falling Rain drops */}
+        {resolvedWeather === "rainy" && (
+          <div className="sky-rain-container">
+            {rainList.map((drop) => (
+              <div
+                key={drop.id}
+                className="rain-drop"
+                style={{
+                  left: drop.left,
+                  "--rain-duration": drop.duration,
+                  "--rain-delay": drop.delay
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Falling Snow flakes */}
+        {resolvedWeather === "snowy" && (
+          <div className="sky-snow-container">
+            {snowList.map((flake) => (
+              <div
+                key={flake.id}
+                className="snow-flake"
+                style={{
+                  left: flake.left,
+                  width: flake.size,
+                  height: flake.size,
+                  "--snow-duration": flake.duration,
+                  "--snow-delay": flake.delay,
+                  "--drift-offset": flake.drift
+                }}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Storm Lightning strike flashes */}
         <div className={`sky-lightning-flash ${lightningActive ? "lightning-strike" : ""}`} />

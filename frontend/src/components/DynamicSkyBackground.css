@@ -653,6 +653,8 @@
 /* Hide all dynamic sky/weather layers and particles in solid mode */
 .sky-background-root.mode-solid .parallax-layer,
 .sky-background-root.mode-solid .sky-lightning-flash,
-.sky-background-root.mode-solid .scenic-flower-container {
+.sky-background-root.mode-solid .scenic-flower-container,
+.sky-background-root.mode-solid .sky-rain-container,
+.sky-background-root.mode-solid .sky-snow-container {
   display: none !important;
 }
