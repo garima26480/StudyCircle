@@ -92,7 +92,7 @@ export default function Home({ auth, onLogout }) {
     <main className="page-shell" style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "28px 24px" }}>
       <div className="feed-dashboard-grid">
         {/* Center: Main Dashboard Feed Stream */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "24px", width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%" }}>
           {/* Feed Page Header */}
           <section className="hero-card">
             <div>

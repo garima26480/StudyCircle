@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import PageTransition from "./components/PageTransition";
 import StudyNavbar from "./components/StudyNavbar";
+import DynamicSkyBackground from "./components/DynamicSkyBackground";
 import Group from "./pages/Group";
 import Home from "./pages/Home";
 import Landing from "./pages/Landing";
@@ -147,6 +148,7 @@ function AppMain() {
     <LayoutProvider>
       <BrowserRouter>
         <div className="app-shell">
+          <DynamicSkyBackground />
           {auth.user ? <StudyNavbar onLogout={handleLogout} user={auth.user} /> : null}
           {auth.user ? <SidebarMenu onLogout={handleLogout} user={auth.user} /> : null}
           {auth.user ? <BottomNavCard /> : null}

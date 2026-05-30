@@ -1,6 +1,6 @@
 :root {
-  --surface: rgba(255, 255, 255, 0.9);
-  --surface-strong: #ffffff;
+  --surface: rgba(255, 255, 255, 0.52);     /* Premium light frosted glass */
+  --surface-strong: rgba(255, 255, 255, 0.72); /* Semi-translucent strong surface */
   --text: #102033;
   --text-soft: #5f7188;
   --primary: #8b5cf6;       /* Vibrant Purple */
@@ -46,11 +46,7 @@ body {
   margin: 0;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(circle at top left, rgba(139, 92, 246, 0.18), transparent 35%),
-    radial-gradient(circle at top right, rgba(236, 72, 153, 0.15), transparent 35%),
-    radial-gradient(circle at bottom left, rgba(6, 182, 212, 0.15), transparent 35%),
-    linear-gradient(135deg, #f5f3ff 0%, #fae8ff 50%, #eff6ff 100%);
+  background: transparent; /* Bleed dynamic sky through */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -96,10 +92,13 @@ img {
 .feed-card,
 .hero-card {
   background: var(--surface);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(20px) saturate(130%); /* Enhanced premium frosted blur */
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   border-radius: var(--radius-lg);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .auth-card {
@@ -370,7 +369,29 @@ img {
 .btn-secondary:hover,
 .btn-ghost:hover,
 .btn-danger:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 36px rgba(139, 92, 246, 0.28);
+}
+
+.btn-secondary:hover {
+  box-shadow: 0 16px 36px rgba(236, 72, 153, 0.26);
+}
+
+.btn:active,
+.btn-secondary:active,
+.btn-ghost:active,
+.btn-danger:active {
+  transform: translateY(0) scale(0.96);
+  transition: transform 0.08s ease;
+}
+
+.group-card:hover,
+.stat-card:hover,
+.feed-card:hover,
+.composer-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(139, 92, 246, 0.35);
+  box-shadow: 0 24px 60px rgba(139, 92, 246, 0.16);
 }
 
 .btn:disabled,
@@ -497,9 +518,9 @@ img {
 .hero-card {
   padding: 28px;
   display: grid;
-  grid-template-columns: 1.35fr 0.85fr;
-  gap: 20px;
-  margin-bottom: 24px;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 24px;
+  margin-bottom: 16px;
   align-items: center;
 }
 
@@ -936,4 +957,197 @@ img {
   text-align: center;
   padding: 10px;
   font-size: 0.9rem;
+}
+
+/* Interactive Members Dropdown & Member Details Modal Styles */
+.stat-card.clickable {
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.stat-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.12);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(242, 235, 224, 0.95));
+}
+
+.stat-card.clickable:active {
+  transform: translateY(0);
+}
+
+.members-dropdown-wrapper {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 10px;
+  z-index: 50;
+  max-height: 280px;
+  overflow-y: auto;
+  animation: dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-soft);
+  padding: 6px 8px 2px;
+  text-align: left;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  transition: background 0.15s ease;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.member-row:hover {
+  background: rgba(139, 92, 246, 0.06);
+  border-color: rgba(139, 92, 246, 0.1);
+}
+
+.member-row.disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.member-row.disabled:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+.member-info-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.member-status-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.online {
+  background-color: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.status-dot.offline {
+  background-color: #94a3b8;
+}
+
+.status-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.status-label.online {
+  color: #059669;
+}
+
+.status-label.offline {
+  color: var(--text-soft);
+}
+
+.badge-owner {
+  background: rgba(236, 72, 153, 0.1);
+  color: #db2777;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid rgba(236, 72, 153, 0.15);
+}
+
+.badge-you {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--primary-dark);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* Modal details list styling */
+.member-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 18px;
+  text-align: left;
+}
+
+.member-detail-item {
+  display: grid;
+  gap: 4px;
+}
+
+.member-detail-item span {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-weight: 700;
+}
+
+.member-detail-item strong {
+  font-size: 0.95rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Transparent click dismiss backdrop & active trigger z-index elevation */
+.dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 45;
+  cursor: default;
+}
+
+.stat-card.clickable.active-dropdown {
+  z-index: 46;
+  position: relative;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+  background: var(--surface-strong) !important;
+  border-color: var(--primary) !important;
 }

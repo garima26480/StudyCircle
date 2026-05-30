@@ -61,7 +61,7 @@ export default function GroupsList({ auth, onLogout }) {
 
   return (
     <main className="page-shell" style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "28px 24px" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "24px", width: "100%" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%" }}>
           {/* Page Header */}
           <section className="hero-card">
             <div>
