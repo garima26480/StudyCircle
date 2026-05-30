@@ -103,14 +103,14 @@ export default function Home({ auth, onLogout }) {
               <p className="tiny-text">Share subject updates and language info with everyone</p>
             </div>
 
-            <div className="hero-stats">
-              <div className="stat-card" style={{ padding: "14px" }}>
-                <strong style={{ fontSize: "1.5rem" }}>{posts.length}</strong>
+            <div className="hero-stats two-cols">
+              <div className="stat-card">
+                <strong>{posts.length}</strong>
                 <span>Public posts</span>
               </div>
-              <div className="stat-card" style={{ padding: "14px" }}>
-                <strong style={{ fontSize: "1.5rem" }}>{auth.user.name.split(" ")[0]}</strong>
-                <span>Signed in as</span>
+              <div className="stat-card">
+                <strong>{auth.user.name.split(" ")[0]}</strong>
+                <span>Signed in</span>
               </div>
             </div>
           </section>
@@ -137,6 +137,7 @@ export default function Home({ auth, onLogout }) {
                   required
                   style={{ minHeight: "80px", border: "none", borderBottom: "1px solid var(--border)", background: "transparent", resize: "none", padding: "8px 0" }}
                   value={postContent}
+                  title="Write your public update (up to 280 characters)"
                 />
                 <div style={{ display: "flex", justifyContent: "flex-end", fontSize: "0.85rem", color: postContent.length > 250 ? "var(--danger)" : "var(--text-soft)", margin: "-4px 0 8px" }}>
                   {postContent.length}/280
@@ -153,6 +154,7 @@ export default function Home({ auth, onLogout }) {
                     required
                     style={{ padding: "8px 12px", borderRadius: "10px", fontSize: "0.9rem" }}
                     value={postSubject}
+                    title="Tag this post with a subject name (required)"
                   />
                 </div>
                 <div className="field">
@@ -163,6 +165,7 @@ export default function Home({ auth, onLogout }) {
                     placeholder="e.g. English, Spanish, None"
                     style={{ padding: "8px 12px", borderRadius: "10px", fontSize: "0.9rem" }}
                     value={postLanguage}
+                    title="Tag this post with a language name (optional)"
                   />
                 </div>
               </div>
@@ -170,7 +173,7 @@ export default function Home({ auth, onLogout }) {
               {postError ? <div className="error-banner" style={{ padding: "8px 12px", fontSize: "0.85rem" }}>{postError}</div> : null}
 
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "4px" }}>
-                <button className="btn" disabled={submittingPost || !postContent.trim() || !postSubject.trim()} type="submit" style={{ padding: "8px 20px", fontSize: "0.9rem" }}>
+                <button className="btn" disabled={submittingPost || !postContent.trim() || !postSubject.trim()} type="submit" style={{ padding: "8px 20px", fontSize: "0.9rem" }} title="Publish this update to the public Home Feed">
                   {submittingPost ? "Posting..." : "Post"}
                 </button>
               </div>
@@ -198,7 +201,7 @@ export default function Home({ auth, onLogout }) {
                   return (
                     <article key={post._id} className="feed-card" style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "14px", padding: "16px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--surface)", marginBottom: "12px" }}>
                       {/* User profile initials avatar */}
-                      <div className="profile-avatar-shell profile-avatar-shell--md" style={{ background: post.userId?.role === "teacher" ? "linear-gradient(135deg, var(--primary), var(--primary-dark))" : "linear-gradient(135deg, var(--accent), #db2777)", color: "#ffffff", fontWeight: "700" }}>
+                      <div className="profile-avatar-shell profile-avatar-shell--md" style={{ background: post.userId?.role === "teacher" ? "linear-gradient(135deg, var(--primary), var(--primary-dark))" : "linear-gradient(135deg, var(--accent), #db2777)", color: "#ffffff", fontWeight: "700" }} title={`${post.userId?.name || "Deleted User"} (${post.userId?.role === "teacher" ? "Teacher" : "Student"})`}>
                         {userInitials}
                       </div>
 
@@ -235,6 +238,7 @@ export default function Home({ auth, onLogout }) {
                             type="button"
                             onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.15)")}
                             onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                            title={isLiked ? "Unlike this post" : "Like this post"}
                           >
                             <svg
                               fill={isLiked ? "currentColor" : "none"}

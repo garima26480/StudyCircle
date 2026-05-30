@@ -71,7 +71,7 @@ export default function GroupsList({ auth, onLogout }) {
               <h1>Study Circles</h1>
               <p className="tiny-text">Join or open a dedicated classroom chat</p>
               <div className="inline-actions" style={{ marginTop: "14px" }}>
-                <Link className="btn-ghost" to="/home">
+                <Link className="btn-ghost" to="/home" title="Return to the public Home Feed page">
                   Back to Home Feed
                 </Link>
               </div>
@@ -121,6 +121,7 @@ export default function GroupsList({ auth, onLogout }) {
                     fontSize: "0.95rem",
                     color: "var(--text)",
                   }}
+                  title="Search and filter study circles dynamically by name"
                 />
               </div>
 
@@ -135,6 +136,7 @@ export default function GroupsList({ auth, onLogout }) {
                   height: "48px",
                   fontSize: "0.95rem",
                 }}
+                title="Open the modal to launch a brand new study circle"
               >
                 <span>+</span>
                 <span>Create Circle</span>

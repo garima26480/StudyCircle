@@ -134,6 +134,18 @@ function Group({ auth }) {
     }
   };
 
+  const handleUpdateMessage = (updatedMessage) => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg._id === updatedMessage._id ? updatedMessage : msg))
+    );
+  };
+
+  const handleUpdateQuestion = (updatedQuestion) => {
+    setQuestions((prev) =>
+      prev.map((q) => (q._id === updatedQuestion._id ? updatedQuestion : q))
+    );
+  };
+
   return (
     <main className="page-shell">
       <div className="inline-actions" style={{ marginBottom: "18px" }}>
@@ -174,6 +186,7 @@ function Group({ auth }) {
           <section className="group-layout">
             <div className="stack">
               <ChatBox
+                auth={auth}
                 chatForm={chatForm}
                 error={messageError}
                 isSending={sendingMessage}
@@ -181,6 +194,7 @@ function Group({ auth }) {
                 messages={messages}
                 onChatChange={handleChatChange}
                 onSendMessage={handleSendMessage}
+                onUpdateMessage={handleUpdateMessage}
               />
             </div>
 
@@ -212,6 +226,7 @@ function Group({ auth }) {
               </section>
 
               <QuestionBox
+                auth={auth}
                 error={questionError}
                 isPosting={postingQuestion}
                 loading={loadingQuestions}
@@ -219,6 +234,7 @@ function Group({ auth }) {
                 onQuestionChange={handleQuestionChange}
                 questionForm={questionForm}
                 questions={questions}
+                onUpdateQuestion={handleUpdateQuestion}
               />
             </div>
           </section>
