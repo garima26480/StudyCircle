@@ -132,10 +132,44 @@ const getGroupDetails = async (req, res, next) => {
   }
 };
 
+const deleteGroup = async (req, res, next) => {
+  try {
+    const group = await Group.findById(req.params.id);
+
+    if (!group) {
+      return res.status(404).json({ message: "Group not found." });
+    }
+
+    // Secure Verification: Check if requester is the creator of the group
+    if (group.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        message: "Unauthorized. Only the owner can delete this group.",
+      });
+    }
+
+    // Cascade Cleanup: Delete all associated messages and questions
+    const Message = require("../models/Message");
+    const Question = require("../models/Question");
+    
+    await Message.deleteMany({ groupId: req.params.id });
+    await Question.deleteMany({ groupId: req.params.id });
+
+    // Delete the group document
+    await Group.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      message: "Group and all associated messages and questions deleted successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createGroup,
   joinGroup,
   leaveGroup,
   getAllGroups,
   getGroupDetails,
+  deleteGroup,
 };

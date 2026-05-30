@@ -1,27 +1,32 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { motion, useMotionValue, useSpring, useScroll, useTransform } from "framer-motion";
+import { gsap } from "gsap";
+import { fetchLiveWeather } from "../services/weather";
 import "./DynamicSkyBackground.css";
-
-// WMO Weather Code Mapping to StudyCircle Sky Modes
-const mapWmoCodeToWeather = (code) => {
-  if (code === undefined || code === null) return "clear";
-  if (code === 0) return "clear";
-  if ([1, 2, 3, 45, 48].includes(code)) return "cloudy";
-  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return "rainy";
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return "snowy";
-  if ([95, 96, 99].includes(code)) return "stormy";
-  return "clear"; // default fallback
-};
 
 export default function DynamicSkyBackground() {
   // Persistence Keys: store custom vibe preferences
   const [timeMode, setTimeMode] = useState(() => localStorage.getItem("sc_sky_time_mode") || "auto");
   const [weatherMode, setWeatherMode] = useState(() => localStorage.getItem("sc_sky_weather_mode") || "auto");
+  const [backdropMode, setBackdropMode] = useState(() => localStorage.getItem("sc_sky_backdrop_mode") || "meadow");
 
-  // Dynamic States
+  // Dynamic Meteorological States
   const [currentHour, setCurrentHour] = useState(() => new Date().getHours());
-  const [autoWeather, setAutoWeather] = useState("clear");
+  const [liveWeather, setLiveWeather] = useState({
+    condition: "clear",
+    temperature: 22,
+    windSpeed: 8,
+    humidity: 50,
+    sunrise: null,
+    sunset: null
+  });
+  
   const [isWidgetOpen, setIsWidgetOpen] = useState(false);
   const [lightningActive, setLightningActive] = useState(false);
+
+  // GSAP Interpolated Color Grading State
+  const [grading, setGrading] = useState({ bright: 1, sat: 1.05, contrast: 1 });
+  const gradingRef = useRef({ bright: 1, sat: 1.05, contrast: 1 });
 
   // Sync state changes with localStorage
   useEffect(() => {
@@ -32,11 +37,15 @@ export default function DynamicSkyBackground() {
     localStorage.setItem("sc_sky_weather_mode", weatherMode);
   }, [weatherMode]);
 
+  useEffect(() => {
+    localStorage.setItem("sc_sky_backdrop_mode", backdropMode);
+  }, [backdropMode]);
+
   // Keep hour updated automatically
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentHour(new Date().getHours());
-    }, 60000); // Check every minute
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -45,103 +54,248 @@ export default function DynamicSkyBackground() {
     if (weatherMode !== "auto") return;
 
     let active = true;
-    const fetchWeather = async (lat, lon) => {
-      try {
-        const response = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code`
-        );
-        if (!response.ok) throw new Error("Weather API failed");
-        const data = await response.json();
-        const code = data.current?.weather_code;
-        if (active) {
-          setAutoWeather(mapWmoCodeToWeather(code));
-        }
-      } catch (err) {
-        console.warn("Unable to fetch live weather, falling back to clear skies.", err);
+    const syncWeather = async () => {
+      const weatherData = await fetchLiveWeather();
+      if (active) {
+        setLiveWeather(weatherData);
       }
     };
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          fetchWeather(position.coords.latitude, position.coords.longitude);
-        },
-        (error) => {
-          console.log("Geolocation declined or unavailable, using clear weather fallback.");
-        },
-        { timeout: 10000 }
-      );
-    }
-
+    syncWeather();
+    
+    // Poll weather every 10 minutes to stay responsive to atmospheric changes
+    const polling = setInterval(syncWeather, 600000);
     return () => {
       active = false;
+      clearInterval(polling);
     };
   }, [weatherMode]);
 
-  // Resolve active time of day
+  // Resolve active time of day (dawn, day, dusk, night)
   const resolvedTime = useMemo(() => {
     if (timeMode !== "auto") return timeMode;
+    
+    // If live API weather has mapped sunrise/sunset, use them!
+    const now = new Date();
+    if (liveWeather.sunrise && liveWeather.sunset) {
+      const sunrise = liveWeather.sunrise;
+      const sunset = liveWeather.sunset;
+      
+      const dawnStart = new Date(sunrise.getTime() - 45 * 60000); // 45m before sunrise
+      const dayStart = new Date(sunrise.getTime() + 45 * 60000);  // 45m after sunrise
+      const duskStart = new Date(sunset.getTime() - 45 * 60000);  // 45m before sunset
+      const nightStart = new Date(sunset.getTime() + 45 * 60000); // 45m after sunset
+
+      if (now >= dawnStart && now < dayStart) return "dawn";
+      if (now >= dayStart && now < duskStart) return "day";
+      if (now >= duskStart && now < nightStart) return "dusk";
+      return "night";
+    }
+
+    // Standard hourly backup
     const h = currentHour;
     if (h >= 5 && h < 7) return "dawn";
     if (h >= 7 && h < 17) return "day";
     if (h >= 17 && h < 19) return "dusk";
     return "night";
-  }, [timeMode, currentHour]);
+  }, [timeMode, currentHour, liveWeather.sunrise, liveWeather.sunset]);
 
   // Resolve active weather mode
   const resolvedWeather = useMemo(() => {
     if (weatherMode !== "auto") return weatherMode;
-    return autoWeather;
-  }, [weatherMode, autoWeather]);
+    return liveWeather.condition;
+  }, [weatherMode, liveWeather.condition]);
 
-  // Calculate Sun and Moon Coordinates (Orbital Trajectory Math)
-  const celestialCoordinates = useMemo(() => {
-    // We map a coordinate based on the current active hour (0 - 23)
-    let hourVal = currentHour;
+  // GSAP Weather Transition Morph (smoothly interpolates photographic color-grading)
+  useEffect(() => {
+    const target = { bright: 1.0, sat: 1.05, contrast: 1.0 };
     
-    // If the timeMode is overridden manually, map it to a representative hour
-    if (timeMode === "dawn") hourVal = 6;
-    else if (timeMode === "day") hourVal = 12;
-    else if (timeMode === "dusk") hourVal = 18;
-    else if (timeMode === "night") hourVal = 0;
-
-    // SUN: Visible between 6am (6) and 6pm (18)
-    const isSunVisible = hourVal >= 6 && hourVal < 18;
-    let sunX = 0, sunY = 0;
-    if (isSunVisible) {
-      const pct = (hourVal - 6) / 12; // 0 to 1
-      sunX = 10 + 80 * pct; // 10% to 90% across screen
-      // Parabolic Arc: high in the sky (15% from top) at noon, low at horizon (80%)
-      sunY = 15 + 65 * Math.pow((sunX - 50) / 40, 2);
+    if (resolvedWeather === "partly_cloudy") {
+      target.bright = 0.92; target.sat = 0.95; target.contrast = 0.98;
+    } else if (resolvedWeather === "overcast") {
+      target.bright = 0.82; target.sat = 0.8; target.contrast = 0.95;
+    } else if (resolvedWeather === "rainy" || resolvedWeather === "stormy") {
+      target.bright = 0.6; target.sat = 0.62; target.contrast = 0.88;
+    } else if (resolvedWeather === "foggy") {
+      target.bright = 0.72; target.sat = 0.68; target.contrast = 0.82;
+    } else if (resolvedWeather === "snowy") {
+      target.bright = 0.88; target.sat = 0.72; target.contrast = 0.95;
     }
 
-    // MOON: Visible between 6pm (18) and 6am (6)
-    const isMoonVisible = hourVal >= 18 || hourVal < 6;
-    let moonX = 0, moonY = 0;
-    if (isMoonVisible) {
-      const adjustedHour = hourVal >= 18 ? hourVal - 18 : hourVal + 6;
-      const pct = adjustedHour / 12; // 0 to 1
-      moonX = 10 + 80 * pct;
-      moonY = 15 + 65 * Math.pow((moonX - 50) / 40, 2);
+    // Night scales down brightness naturally
+    if (resolvedTime === "night") {
+      target.bright *= 0.45;
+      target.sat *= 0.8;
+    } else if (resolvedTime === "dawn" || resolvedTime === "dusk") {
+      target.bright *= 0.82;
     }
 
-    return {
-      sun: { x: sunX, y: sunY, visible: isSunVisible },
-      moon: { x: moonX, y: moonY, visible: isMoonVisible },
+    gsap.killTweensOf(gradingRef.current);
+    gsap.to(gradingRef.current, {
+      bright: target.bright,
+      sat: target.sat,
+      contrast: target.contrast,
+      duration: 2.8,
+      ease: "power2.out",
+      onUpdate: () => {
+        setGrading({
+          bright: gradingRef.current.bright,
+          sat: gradingRef.current.sat,
+          contrast: gradingRef.current.contrast
+        });
+      }
+    });
+  }, [resolvedWeather, resolvedTime]);
+
+  // ==========================================================================
+  // FRAMER MOTION PARALLAX SYSTEM SETUP
+  // ==========================================================================
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  // Spring physics parameters for fluid, haptic 2.5D tilting
+  const springOptions = { stiffness: 60, damping: 24, mass: 0.7 };
+  const smoothX = useSpring(mouseX, springOptions);
+  const smoothY = useSpring(mouseY, springOptions);
+
+  // Layer Translations based on mouse coordinates
+  const skyTranslateX = useTransform(smoothX, [-0.5, 0.5], ["-6px", "6px"]);
+  const skyTranslateY = useTransform(smoothY, [-0.5, 0.5], ["-4px", "4px"]);
+
+  const mountainTranslateX = useTransform(smoothX, [-0.5, 0.5], ["-16px", "16px"]);
+  const mountainTranslateY = useTransform(smoothY, [-0.5, 0.5], ["-10px", "10px"]);
+
+  const forestTranslateX = useTransform(smoothX, [-0.5, 0.5], ["-30px", "30px"]);
+  const forestTranslateY = useTransform(smoothY, [-0.5, 0.5], ["-20px", "20px"]);
+
+  const meadowTranslateX = useTransform(smoothX, [-0.5, 0.5], ["-45px", "45px"]);
+  const meadowTranslateY = useTransform(smoothY, [-0.5, 0.5], ["-28px", "28px"]);
+
+  // Scroll depth focus scaling (simulates camera zoom on page scrolls)
+  const { scrollY } = useScroll();
+  const skyScale = useTransform(scrollY, [0, 900], [1.02, 1.06]);
+  const mountainScale = useTransform(scrollY, [0, 900], [1.02, 1.10]);
+  const forestScale = useTransform(scrollY, [0, 900], [1.02, 1.18]);
+  const meadowScale = useTransform(scrollY, [0, 900], [1.02, 1.25]);
+
+  const mountainBlur = useTransform(scrollY, [0, 500], ["blur(0px)", "blur(2.5px)"]);
+  const forestBlur = useTransform(scrollY, [0, 500], ["blur(0px)", "blur(1.2px)"]);
+
+  // Track Desktop mouse coordinates
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const xNorm = (e.clientX / window.innerWidth) - 0.5;
+      const yNorm = (e.clientY / window.innerHeight) - 0.5;
+      mouseX.set(xNorm);
+      mouseY.set(yNorm);
     };
-  }, [timeMode, currentHour]);
 
-  // Twinkle Starfield Generator (memoized on mount to prevent dynamic jumping)
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [mouseX, mouseY]);
+
+  // Track Mobile Gyroscope tilt perspective
+  useEffect(() => {
+    const handleOrientation = (e) => {
+      const { beta, gamma } = e; // beta: -180 to 180 (front/back), gamma: -90 to 90 (left/right)
+      if (beta !== null && gamma !== null) {
+        const xNorm = Math.min(Math.max(gamma / 26, -0.5), 0.5);
+        const yNorm = Math.min(Math.max((beta - 42) / 26, -0.5), 0.5); // Offset by 42deg phone hold
+        mouseX.set(xNorm);
+        mouseY.set(yNorm);
+      }
+    };
+
+    window.addEventListener("deviceorientation", handleOrientation);
+    return () => window.removeEventListener("deviceorientation", handleOrientation);
+  }, [mouseX, mouseY]);
+
+  // ==========================================================================
+  // METEOROLOGICAL PARTICLES GENERATION (Stars, Pollen, Fireflies, Mist, Clouds)
+  // ==========================================================================
+
+  // Twinkle Starfield
   const starsList = useMemo(() => {
     const list = [];
     for (let i = 0; i < 40; i++) {
       list.push({
         id: i,
-        top: `${Math.random() * 65}%`, // Top part of the sky
+        top: `${Math.random() * 60}%`,
         left: `${Math.random() * 100}%`,
-        size: `${1 + Math.random() * 2}px`,
+        size: `${1 + Math.random() * 2.5}px`,
         duration: `${2 + Math.random() * 4}s`,
-        delay: `${Math.random() * 4}s`,
+        delay: `${Math.random() * 4}s`
+      });
+    }
+    return list;
+  }, []);
+
+  // Floating Pollen Particles (Day Clear feature)
+  const pollenList = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < 22; i++) {
+      list.push({
+        id: i,
+        left: `${Math.random() * 100}%`,
+        duration: `${6 + Math.random() * 6}s`,
+        delay: `${Math.random() * 6}s`,
+        size: `${2 + Math.random() * 4}px`,
+        driftX: `${40 + Math.random() * 80}px`,
+        maxOpacity: 0.4 + Math.random() * 0.4
+      });
+    }
+    return list;
+  }, []);
+
+  // Twinkling Fireflies (Night feature)
+  const fireflyList = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < 15; i++) {
+      list.push({
+        id: i,
+        left: `${15 + Math.random() * 70}%`,
+        duration: `${9 + Math.random() * 6}s`,
+        delay: `${Math.random() * 8}s`,
+        size: `${3 + Math.random() * 4}px`,
+        driftX: `${100 + Math.random() * 120}px`,
+        driftY: `${20 + Math.random() * 40}vh`,
+        driftX2: `${180 + Math.random() * 100}px`,
+        driftY2: `${5 + Math.random() * 25}vh`
+      });
+    }
+    return list;
+  }, []);
+
+  // Drifting Clouds
+  const cloudList = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < 6; i++) {
+      list.push({
+        id: i,
+        top: `${8 + Math.random() * 32}%`,
+        duration: `${45 + Math.random() * 70}s`,
+        delay: `${-Math.random() * 60}s`,
+        scale: 0.65 + Math.random() * 0.85,
+        width: `${160 + Math.random() * 220}px`,
+        height: `${65 + Math.random() * 55}px`
+      });
+    }
+    return list;
+  }, []);
+
+  // Drifting Foggy Valley Mist
+  const mistList = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < 4; i++) {
+      list.push({
+        id: i,
+        top: `${42 + Math.random() * 25}%`, // Renders in tree forest valleys
+        left: `${-10 + Math.random() * 30}%`,
+        duration: `${30 + Math.random() * 25}s`,
+        delay: `${-Math.random() * 30}s`,
+        width: `${300 + Math.random() * 350}px`,
+        height: `${80 + Math.random() * 60}px`,
+        driftY: `${15 + Math.random() * 35}px`
       });
     }
     return list;
@@ -150,12 +304,12 @@ export default function DynamicSkyBackground() {
   // Rain Drops List
   const rainList = useMemo(() => {
     const list = [];
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 65; i++) {
       list.push({
         id: i,
         left: `${Math.random() * 100}%`,
         duration: `${0.6 + Math.random() * 0.4}s`,
-        delay: `${Math.random() * 1.5}s`,
+        delay: `${Math.random() * 1.5}s`
       });
     }
     return list;
@@ -171,30 +325,13 @@ export default function DynamicSkyBackground() {
         duration: `${4 + Math.random() * 4}s`,
         delay: `${Math.random() * 4}s`,
         size: `${3 + Math.random() * 4}px`,
-        drift: `${-30 + Math.random() * 60}px`,
+        drift: `${-30 + Math.random() * 60}px`
       });
     }
     return list;
   }, []);
 
-  // Cloud Layers (Parallax)
-  const cloudList = useMemo(() => {
-    const list = [];
-    for (let i = 0; i < 6; i++) {
-      list.push({
-        id: i,
-        top: `${10 + Math.random() * 40}%`,
-        duration: `${45 + Math.random() * 65}s`,
-        delay: `${-Math.random() * 60}s`, // Stagger cloud placements initially
-        scale: 0.6 + Math.random() * 0.8,
-        width: `${150 + Math.random() * 200}px`,
-        height: `${60 + Math.random() * 50}px`,
-      });
-    }
-    return list;
-  }, []);
-
-  // Lightning Flash Generator for storm weather
+  // Lightning Storm Flashes
   useEffect(() => {
     if (resolvedWeather !== "stormy") return;
 
@@ -206,119 +343,282 @@ export default function DynamicSkyBackground() {
         if (active) setLightningActive(false);
       }, 500);
 
-      // Schedule next strike between 6 to 18 seconds
       const nextTime = 6000 + Math.random() * 12000;
       setTimeout(triggerLightning, nextTime);
     };
 
     const firstStrike = setTimeout(triggerLightning, 4000);
-
     return () => {
       active = false;
       clearTimeout(firstStrike);
     };
   }, [resolvedWeather]);
 
+  // Compile full layer filters dynamically based on GSAP grading updates
+  const activeFilters = useMemo(() => {
+    return `brightness(${grading.bright}) saturate(${grading.sat}) contrast(${grading.contrast})`;
+  }, [grading]);
+
   return (
     <>
-      {/* GLOBAL BACKGROUND LAYER */}
-      <div className={`sky-background-root sky-${resolvedTime} weather-${resolvedWeather}`}>
-        {/* Night Twilight Starfield */}
-        <div className="sky-starfield">
-          {starsList.map((star) => (
-            <div
-              key={star.id}
-              className="sky-star"
-              style={{
-                top: star.top,
-                left: star.left,
-                width: star.size,
-                height: star.size,
-                "--star-duration": star.duration,
-                "--star-delay": star.delay,
-              }}
-            />
-          ))}
-        </div>
+      <div className={`sky-background-root sky-${resolvedTime} weather-${resolvedWeather} mode-${backdropMode}`}>
+        
+        {/* ==========================================================================
+           2.5D PARALLAX ENVIRONMENT LAYERS
+           ========================================================================== */}
 
-        {/* Sun Celestial Body */}
-        {celestialCoordinates.sun.visible && (
-          <div
-            className="celestial-body celestial-sun"
-            style={{
-              left: `${celestialCoordinates.sun.x}%`,
-              top: `${celestialCoordinates.sun.y}%`,
-            }}
-          />
-        )}
-
-        {/* Moon Celestial Body */}
-        {celestialCoordinates.moon.visible && (
-          <div
-            className="celestial-body celestial-moon"
-            style={{
-              left: `${celestialCoordinates.moon.x}%`,
-              top: `${celestialCoordinates.moon.y}%`,
-            }}
-          />
-        )}
-
-        {/* Cloud Overlay Layers */}
-        <div className="sky-clouds-container">
-          {cloudList.map((cloud) => (
-            <div
-              key={cloud.id}
-              className="sky-cloud"
-              style={{
-                top: cloud.top,
-                width: cloud.width,
-                height: cloud.height,
-                transform: `scale(${cloud.scale})`,
-                "--drift-duration": cloud.duration,
-                animationDelay: cloud.delay,
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Rain Layer */}
-        {resolvedWeather === "rainy" && (
-          <div className="sky-rain-container">
-            {rainList.map((drop) => (
+        {/* LAYER 1: SKY & STARFIELD BACKDROP */}
+        <motion.div 
+          className="parallax-layer layer-sky"
+          style={{
+            x: skyTranslateX,
+            y: skyTranslateY,
+            scale: skyScale
+          }}
+        >
+          {/* Night Twilight Twinkling Starfield */}
+          <div className="sky-starfield">
+            {starsList.map((star) => (
               <div
-                key={drop.id}
-                className="rain-drop"
+                key={star.id}
+                className="sky-star"
                 style={{
-                  left: drop.left,
-                  "--rain-duration": drop.duration,
-                  "--rain-delay": drop.delay,
+                  top: star.top,
+                  left: star.left,
+                  width: star.size,
+                  height: star.size,
+                  "--star-duration": star.duration,
+                  "--star-delay": star.delay
                 }}
               />
             ))}
           </div>
-        )}
 
-        {/* Snow Layer */}
-        {resolvedWeather === "snowy" && (
-          <div className="sky-snow-container">
-            {snowList.map((flake) => (
+          {/* Meteorological Parallax Clouds */}
+          <div className="sky-clouds-container">
+            {cloudList.map((cloud) => (
               <div
-                key={flake.id}
-                className="snow-flake"
+                key={cloud.id}
+                className="sky-cloud"
                 style={{
-                  left: flake.left,
-                  width: flake.size,
-                  height: flake.size,
-                  "--snow-duration": flake.duration,
-                  "--snow-delay": flake.delay,
-                  "--drift-offset": flake.drift,
+                  top: cloud.top,
+                  width: cloud.width,
+                  height: cloud.height,
+                  transform: `scale(${cloud.scale})`,
+                  "--drift-duration": cloud.duration,
+                  animationDelay: cloud.delay
                 }}
               />
             ))}
           </div>
-        )}
+        </motion.div>
 
-        {/* Lightning strike overlay */}
+        {/* LAYER 2: MAJESTIC MOUNTAINS */}
+        <motion.div 
+          className="parallax-layer layer-mountains"
+          style={{
+            x: mountainTranslateX,
+            y: mountainTranslateY,
+            scale: mountainScale,
+            filter: mountainBlur,
+            backgroundImage: `url(${process.env.PUBLIC_URL + "/scenic_backdrop.png"})`
+          }}
+        >
+          {/* Double-mount filter overlay for daylight adjustments */}
+          <div className="sky-scenic-layer" style={{ filter: activeFilters }} />
+          <div className="sky-scenic-blend" />
+        </motion.div>
+
+        {/* LAYER 3: VALLEYS, FOREST HILLS & MIST */}
+        <motion.div 
+          className="parallax-layer layer-forests"
+          style={{
+            x: forestTranslateX,
+            y: forestTranslateY,
+            scale: forestScale,
+            filter: forestBlur
+          }}
+        >
+          {/* Drifting Low Valley Mist (rendered in intermediate depths) */}
+          <div className="sky-mist-container">
+            {mistList.map((mist) => (
+              <div
+                key={mist.id}
+                className="mist-cloud"
+                style={{
+                  top: mist.top,
+                  left: mist.left,
+                  width: mist.width,
+                  height: mist.height,
+                  "--mist-duration": mist.duration,
+                  "--mist-delay": mist.delay,
+                  "--mist-drift-y": mist.driftY
+                }}
+              />
+            ))}
+          </div>
+        </motion.div>
+
+        {/* LAYER 4: MEADOW FOREGROUND, WIND SWAYS & WEATHER PARTICLES */}
+        <motion.div 
+          className="parallax-layer layer-meadow"
+          style={{
+            x: meadowTranslateX,
+            y: meadowTranslateY,
+            scale: meadowScale
+          }}
+        >
+          {/* Floating Pollen Particles (Daylight clear features) */}
+          <div className="sky-pollen-container">
+            {pollenList.map((pollen) => (
+              <div
+                key={pollen.id}
+                className="pollen-particle"
+                style={{
+                  left: pollen.left,
+                  width: pollen.size,
+                  height: pollen.size,
+                  "--pollen-duration": pollen.duration,
+                  "--pollen-delay": pollen.delay,
+                  "--pollen-drift-x": pollen.driftX,
+                  "--pollen-max-opacity": pollen.maxOpacity
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Twinkling Fireflies (Midnight feature) */}
+          <div className="sky-firefly-container">
+            {fireflyList.map((fly) => (
+              <div
+                key={fly.id}
+                className="firefly-particle"
+                style={{
+                  left: fly.left,
+                  width: fly.size,
+                  height: fly.size,
+                  "--firefly-duration": fly.duration,
+                  "--firefly-delay": fly.delay,
+                  "--firefly-drift-x": fly.driftX,
+                  "--firefly-drift-y": fly.driftY,
+                  "--firefly-drift-x2": fly.driftX2,
+                  "--firefly-drift-y2": fly.driftY2
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Falling Rain drops */}
+          {resolvedWeather === "rainy" && (
+            <div className="sky-rain-container">
+              {rainList.map((drop) => (
+                <div
+                  key={drop.id}
+                  className="rain-drop"
+                  style={{
+                    left: drop.left,
+                    "--rain-duration": drop.duration,
+                    "--rain-delay": drop.delay
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Falling Snow flakes */}
+          {resolvedWeather === "snowy" && (
+            <div className="sky-snow-container">
+              {snowList.map((flake) => (
+                <div
+                  key={flake.id}
+                  className="snow-flake"
+                  style={{
+                    left: flake.left,
+                    width: flake.size,
+                    height: flake.size,
+                    "--snow-duration": flake.duration,
+                    "--snow-delay": flake.delay,
+                    "--drift-offset": flake.drift
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Swaying Foreground Meadow Daisies */}
+          <div className="scenic-flower-container">
+            {/* Daisy 1 */}
+            <svg className="scenic-flower" viewBox="0 0 24 40" style={{ "--sway-duration": "4.5s", "--sway-delay": "-1.2s" }}>
+              <path d="M12,40 C10,29 13,19 12,12" fill="none" stroke="#4d7c0f" strokeWidth="2.5" strokeLinecap="round" />
+              <path d="M12,28 C6,27 7,22 12,24" fill="#4d7c0f" />
+              <path d="M12,18 C18,17 17,13 12,15" fill="#4d7c0f" />
+              <g transform="translate(12,12)">
+                <circle cx="0" cy="-6" r="3" fill="#ffffff" />
+                <circle cx="0" cy="6" r="3" fill="#ffffff" />
+                <circle cx="-6" cy="0" r="3" fill="#ffffff" />
+                <circle cx="6" cy="0" r="3" fill="#ffffff" />
+                <circle cx="-4" cy="-4" r="3" fill="#ffffff" />
+                <circle cx="4" cy="4" r="3" fill="#ffffff" />
+                <circle cx="4" cy="-4" r="3" fill="#ffffff" />
+                <circle cx="-4" cy="4" r="3" fill="#ffffff" />
+                <circle cx="0" cy="0" r="3.5" fill="#eab308" />
+              </g>
+            </svg>
+            {/* Daisy 2 */}
+            <svg className="scenic-flower" viewBox="0 0 24 40" style={{ "--sway-duration": "5.5s", "--sway-delay": "0s" }}>
+              <path d="M12,40 C14,30 11,20 12,12" fill="none" stroke="#4d7c0f" strokeWidth="2.5" strokeLinecap="round" />
+              <path d="M12,30 C17,29 16,24 12,26" fill="#4d7c0f" />
+              <path d="M12,20 C6,19 7,14 12,16" fill="#4d7c0f" />
+              <g transform="translate(12,12)">
+                <circle cx="0" cy="-6" r="3" fill="#ffffff" />
+                <circle cx="0" cy="6" r="3" fill="#ffffff" />
+                <circle cx="-6" cy="0" r="3" fill="#ffffff" />
+                <circle cx="6" cy="0" r="3" fill="#ffffff" />
+                <circle cx="-4" cy="-4" r="3" fill="#ffffff" />
+                <circle cx="4" cy="4" r="3" fill="#ffffff" />
+                <circle cx="4" cy="-4" r="3" fill="#ffffff" />
+                <circle cx="-4" cy="4" r="3" fill="#ffffff" />
+                <circle cx="0" cy="0" r="3.5" fill="#eab308" />
+              </g>
+            </svg>
+            {/* Daisy 3 */}
+            <svg className="scenic-flower" viewBox="0 0 24 40" style={{ "--sway-duration": "5s", "--sway-delay": "-2.5s" }}>
+              <path d="M12,40 C11,29 13,19 12,12" fill="none" stroke="#4d7c0f" strokeWidth="2.5" strokeLinecap="round" />
+              <path d="M12,26 C6,25 7,20 12,22" fill="#4d7c0f" />
+              <path d="M12,16 C18,15 17,11 12,13" fill="#4d7c0f" />
+              <g transform="translate(12,12)">
+                <circle cx="0" cy="-6" r="3" fill="#ffffff" />
+                <circle cx="0" cy="6" r="3" fill="#ffffff" />
+                <circle cx="-6" cy="0" r="3" fill="#ffffff" />
+                <circle cx="6" cy="0" r="3" fill="#ffffff" />
+                <circle cx="-4" cy="-4" r="3" fill="#ffffff" />
+                <circle cx="4" cy="4" r="3" fill="#ffffff" />
+                <circle cx="4" cy="-4" r="3" fill="#ffffff" />
+                <circle cx="-4" cy="4" r="3" fill="#ffffff" />
+                <circle cx="0" cy="0" r="3.5" fill="#eab308" />
+              </g>
+            </svg>
+            {/* Daisy 4 */}
+            <svg className="scenic-flower" viewBox="0 0 24 40" style={{ "--sway-duration": "4.2s", "--sway-delay": "-0.7s" }}>
+              <path d="M12,40 C13,28 11,18 12,12" fill="none" stroke="#4d7c0f" strokeWidth="2.5" strokeLinecap="round" />
+              <path d="M12,28 C17,27 16,22 12,24" fill="#4d7c0f" />
+              <path d="M12,18 C6,17 7,12 12,14" fill="#4d7c0f" />
+              <g transform="translate(12,12)">
+                <circle cx="0" cy="-6" r="3" fill="#ffffff" />
+                <circle cx="0" cy="6" r="3" fill="#ffffff" />
+                <circle cx="-6" cy="0" r="3" fill="#ffffff" />
+                <circle cx="6" cy="0" r="3" fill="#ffffff" />
+                <circle cx="-4" cy="-4" r="3" fill="#ffffff" />
+                <circle cx="4" cy="4" r="3" fill="#ffffff" />
+                <circle cx="4" cy="-4" r="3" fill="#ffffff" />
+                <circle cx="-4" cy="4" r="3" fill="#ffffff" />
+                <circle cx="0" cy="0" r="3.5" fill="#eab308" />
+              </g>
+            </svg>
+          </div>
+        </motion.div>
+
+        {/* Storm Lightning strike flashes */}
         <div className={`sky-lightning-flash ${lightningActive ? "lightning-strike" : ""}`} />
       </div>
 
@@ -370,6 +670,34 @@ export default function DynamicSkyBackground() {
             </svg>
             Study Vibe Ambient
           </h3>
+
+          {/* Aesthetic Depth selection */}
+          <div className="vibe-group">
+            <span className="vibe-label">Aesthetic Depth</span>
+            <div className="vibe-buttons vibe-buttons-three">
+              <button
+                className={`vibe-btn ${backdropMode === "meadow" ? "active" : ""}`}
+                onClick={() => setBackdropMode("meadow")}
+                title="Full living scenic alpine landscape with swaying wildflowers"
+              >
+                🌲 Meadow
+              </button>
+              <button
+                className={`vibe-btn ${backdropMode === "sky" ? "active" : ""}`}
+                onClick={() => setBackdropMode("sky")}
+                title="Atmospheric dynamic celestial sky gradients and particles"
+              >
+                🌌 Ambient
+              </button>
+              <button
+                className={`vibe-btn ${backdropMode === "solid" ? "active" : ""}`}
+                onClick={() => setBackdropMode("solid")}
+                title="Clean solid minimalist background matching theme"
+              >
+                🖤 Minimal
+              </button>
+            </div>
+          </div>
 
           {/* Time of Day selection */}
           <div className="vibe-group">
@@ -427,10 +755,16 @@ export default function DynamicSkyBackground() {
                 ☀️ Clear
               </button>
               <button
-                className={`vibe-btn ${weatherMode === "cloudy" ? "active" : ""}`}
-                onClick={() => setWeatherMode("cloudy")}
+                className={`vibe-btn ${weatherMode === "partly_cloudy" ? "active" : ""}`}
+                onClick={() => setWeatherMode("partly_cloudy")}
               >
-                ☁️ Mist
+                ⛅ Clouds
+              </button>
+              <button
+                className={`vibe-btn ${weatherMode === "overcast" ? "active" : ""}`}
+                onClick={() => setWeatherMode("overcast")}
+              >
+                ☁️ Overcast
               </button>
               <button
                 className={`vibe-btn ${weatherMode === "rainy" ? "active" : ""}`}
@@ -447,9 +781,15 @@ export default function DynamicSkyBackground() {
               <button
                 className={`vibe-btn ${weatherMode === "stormy" ? "active" : ""}`}
                 onClick={() => setWeatherMode("stormy")}
-                style={{ gridColumn: "span 2" }}
               >
                 ⛈️ Storm
+              </button>
+              <button
+                className={`vibe-btn ${weatherMode === "foggy" ? "active" : ""}`}
+                onClick={() => setWeatherMode("foggy")}
+                style={{ gridColumn: "span 2" }}
+              >
+                🌫️ Fog
               </button>
             </div>
           </div>

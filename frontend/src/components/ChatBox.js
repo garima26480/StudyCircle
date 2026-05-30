@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "framer-motion";
 import api from "../services/api";
 
 function ChatBox({
@@ -112,7 +113,13 @@ function ChatBox({
         ) : null}
         {!loading &&
           messages.map((item) => (
-            <article className="message-item" key={item._id}>
+            <motion.article 
+              className="message-item" 
+              key={item._id}
+              initial={{ opacity: 0, y: 16, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.38, ease: "easeOut" }}
+            >
               <div className="item-head">
                 <strong>{item.sender?.name || "Unknown user"}</strong>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -179,7 +186,7 @@ function ChatBox({
               ) : (
                 <p>{item.message}</p>
               )}
-            </article>
+            </motion.article>
           ))}
       </div>
     </section>

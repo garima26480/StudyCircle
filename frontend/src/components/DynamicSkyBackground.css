@@ -1,4 +1,8 @@
-/* DynamicSkyBackground.css */
+/* 
+ * StudyCircle "Living World" Environmental Stylesheet 
+ * Handles GPU-accelerated parallax layers, meteorological states, and micro-particles
+ */
+
 .sky-background-root {
   position: fixed;
   inset: 0;
@@ -7,11 +11,12 @@
   height: 100vh;
   overflow: hidden;
   pointer-events: none;
-  transition: background 2s cubic-bezier(0.25, 1, 0.5, 1);
+  background: #02040a; /* solid base fallback */
+  transition: background 3s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: background;
 }
 
-/* Gradients for different times of day */
+/* Day/Night Celestial sky gradients */
 .sky-background-root.sky-dawn {
   background: linear-gradient(to bottom, #101230 0%, #2e1065 30%, #701a75 55%, #ec4899 75%, #ffedd5 100%);
 }
@@ -28,22 +33,138 @@
   background: linear-gradient(to bottom, #02040a 0%, #070a1a 30%, #0e163b 60%, #1e1b4b 100%);
 }
 
-/* Starfield Overlay for Night / Dawn / Dusk */
-.sky-starfield {
+/* ==========================================================================
+   2.5D PARALLAX LAYERS LAYOUT
+   ========================================================================== */
+.parallax-layer {
+  position: absolute;
+  inset: -20px; /* Slight bleed to prevent border revealing during parallax tilts */
+  width: calc(100vw + 40px);
+  height: calc(100vh + 40px);
+  pointer-events: none;
+  background-size: cover;
+  background-position: center bottom;
+  will-change: transform, filter;
+  transition: filter 3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.layer-sky {
+  z-index: -9;
+}
+
+.layer-mountains {
+  z-index: -8;
+  /* Clip paths or assets layered: our generated backdrop will be loaded into layers */
+}
+
+.layer-forests {
+  z-index: -7;
+}
+
+.layer-meadow {
+  z-index: -6;
+}
+
+/* Ambient color grading filters applied to layers dynamically */
+.sky-scenic-layer {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 0;
-  transition: opacity 2s ease-in-out;
+  background-size: cover;
+  background-position: center bottom;
   pointer-events: none;
+  transition: filter 3s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: filter;
 }
 
-.sky-background-root.sky-night .sky-starfield,
-.sky-background-root.sky-dusk .sky-starfield {
-  opacity: 0.8;
+/* Photographic grading rules for the scenic landscape layers */
+.sky-dawn .sky-scenic-layer {
+  filter: brightness(var(--scenic-bright, 0.8)) contrast(1.05) saturate(1.2) sepia(0.2) hue-rotate(-8deg);
 }
-.sky-background-root.sky-dawn .sky-starfield {
+
+.sky-day .sky-scenic-layer {
+  filter: brightness(var(--scenic-bright, 1)) contrast(1) saturate(1.05);
+}
+
+.sky-dusk .sky-scenic-layer {
+  filter: brightness(var(--scenic-bright, 0.72)) contrast(1.1) saturate(1.25) hue-rotate(12deg);
+}
+
+.sky-night .sky-scenic-layer {
+  filter: brightness(var(--scenic-bright, 0.35)) contrast(0.88) saturate(0.55) hue-rotate(-28deg) sepia(0.2);
+}
+
+/* Ambient Blend Overlays for weather shifts */
+.sky-scenic-blend {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -5;
+  mix-blend-mode: overlay;
+  transition: background 3s cubic-bezier(0.25, 1, 0.5, 1), opacity 3s ease;
+  pointer-events: none;
+  opacity: var(--blend-opacity, 0.6);
+}
+
+.sky-dawn .sky-scenic-blend {
+  background: linear-gradient(to top, rgba(251, 113, 133, 0.3), rgba(253, 186, 116, 0.45));
+}
+
+.sky-day .sky-scenic-blend {
+  background: transparent;
+  opacity: 0;
+}
+
+.sky-dusk .sky-scenic-blend {
+  background: linear-gradient(to top, rgba(168, 85, 247, 0.35), rgba(219, 39, 119, 0.45));
+}
+
+.sky-night .sky-scenic-blend {
+  background: linear-gradient(to top, rgba(2, 6, 23, 0.88), rgba(30, 27, 75, 0.6));
+  mix-blend-mode: multiply;
+}
+
+/* Weather Overriding Blends */
+.weather-overcast .sky-scenic-blend {
+  background: rgba(148, 163, 184, 0.35) !important;
+  mix-blend-mode: color-burn !important;
+  opacity: 0.65 !important;
+}
+
+.weather-rainy .sky-scenic-blend,
+.weather-stormy .sky-scenic-blend {
+  background: rgba(71, 85, 105, 0.55) !important;
+  mix-blend-mode: multiply !important;
+  opacity: 0.8 !important;
+}
+
+.weather-foggy .sky-scenic-blend {
+  background: rgba(226, 232, 240, 0.45) !important;
+  mix-blend-mode: overlay !important;
+  opacity: 0.85 !important;
+}
+
+/* ==========================================================================
+   PARTICLE SYSTEMS (STARS, POLLEN, FIREFLIES, MIST, RAIN, SNOW)
+   ========================================================================== */
+
+/* Twinkling Starfield */
+.sky-starfield {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 3s ease-in-out;
+  pointer-events: none;
+  z-index: -8;
+}
+
+.sky-night .sky-starfield,
+.sky-dusk .sky-starfield {
+  opacity: 0.85;
+}
+.sky-dawn .sky-starfield {
   opacity: 0.35;
 }
 
@@ -61,32 +182,33 @@
   50% { opacity: 1; transform: scale(1.2); }
 }
 
-/* Celestial Body (Sun & Moon) */
+/* Celestial Bodies */
 .celestial-body {
   position: absolute;
   border-radius: 50%;
   pointer-events: none;
-  transition: left 2s cubic-bezier(0.16, 1, 0.3, 1), top 2s cubic-bezier(0.16, 1, 0.3, 1), opacity 1.5s ease-in-out, transform 2s ease;
+  transition: left 3s cubic-bezier(0.25, 1, 0.5, 1), top 3s cubic-bezier(0.25, 1, 0.5, 1), opacity 2s ease, transform 3s ease;
   will-change: left, top, transform;
+  z-index: -7;
 }
 
 .celestial-sun {
-  width: 80px;
-  height: 80px;
-  background: radial-gradient(circle, #fffbeb 30%, #fef08a 60%, #facc15 80%, rgba(253, 224, 71, 0) 100%);
-  box-shadow: 0 0 40px rgba(253, 224, 71, 0.6), 0 0 80px rgba(234, 179, 8, 0.3);
+  width: 90px;
+  height: 90px;
+  background: radial-gradient(circle, #ffffff 25%, #fffbeb 45%, #fde047 70%, rgba(234, 179, 8, 0) 100%);
+  box-shadow: 0 0 50px rgba(253, 224, 71, 0.65), 0 0 100px rgba(234, 179, 8, 0.35);
   animation: sun-glow 8s infinite alternate ease-in-out;
 }
 
 @keyframes sun-glow {
-  0% { transform: scale(1); box-shadow: 0 0 40px rgba(253, 224, 71, 0.6), 0 0 80px rgba(234, 179, 8, 0.3); }
-  100% { transform: scale(1.08); box-shadow: 0 0 55px rgba(253, 224, 71, 0.8), 0 0 110px rgba(234, 179, 8, 0.5); }
+  0% { transform: scale(1); box-shadow: 0 0 50px rgba(253, 224, 71, 0.65), 0 0 100px rgba(234, 179, 8, 0.35); }
+  100% { transform: scale(1.08); box-shadow: 0 0 70px rgba(253, 224, 71, 0.85), 0 0 140px rgba(234, 179, 8, 0.55); }
 }
 
 .celestial-moon {
   width: 60px;
   height: 60px;
-  background: radial-gradient(circle, #ffffff 40%, #e2e8f0 70%, #94a3b8 100%);
+  background: radial-gradient(circle, #ffffff 40%, #f1f5f9 70%, #cbd5e1 100%);
   box-shadow: 0 0 25px rgba(255, 255, 255, 0.4), 0 0 50px rgba(226, 232, 240, 0.2);
 }
 
@@ -94,13 +216,13 @@
   content: '';
   position: absolute;
   top: 0;
-  left: 15%;
+  left: 18%;
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: #070a1a;
-  opacity: 0.85; /* Crescent moon effect! */
-  transition: background 2s ease;
+  background: #02040a; /* Lunar shade matches dark midnight base */
+  opacity: 0.85;
+  transition: background 3s ease;
 }
 
 .sky-dawn .celestial-moon::after,
@@ -108,43 +230,103 @@
   background: #2e1065;
 }
 
-/* Clouds System */
-.sky-clouds-container {
+/* Floating Summer Pollen Particles (Clear Day feature) */
+.sky-pollen-container {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
   pointer-events: none;
+  z-index: -4;
   overflow: hidden;
   opacity: 0;
-  transition: opacity 1.5s ease;
+  transition: opacity 3s ease;
 }
 
-.weather-cloudy .sky-clouds-container,
-.weather-rainy .sky-clouds-container,
-.weather-stormy .sky-clouds-container {
+.weather-clear.sky-day .sky-pollen-container,
+.weather-partly_cloudy.sky-day .sky-pollen-container {
+  opacity: 0.75;
+}
+
+.pollen-particle {
+  position: absolute;
+  background: radial-gradient(circle, rgba(254, 240, 138, 0.9) 20%, rgba(234, 179, 8, 0) 70%);
+  border-radius: 50%;
+  filter: blur(0.5px);
+  animation: drift-pollen var(--pollen-duration, 8s) linear infinite;
+  animation-delay: var(--pollen-delay, 0s);
+  will-change: transform;
+}
+
+@keyframes drift-pollen {
+  0% { transform: translate3d(0, 105vh, 0) scale(0.8); opacity: 0; }
+  10%, 90% { opacity: var(--pollen-max-opacity, 0.8); }
+  100% { transform: translate3d(var(--pollen-drift-x, 80px), -40px, 0) scale(1.2); opacity: 0; }
+}
+
+/* Twinkling Fireflies (Night feature) */
+.sky-firefly-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -4;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 3s ease;
+}
+
+.sky-night .sky-firefly-container {
   opacity: 0.85;
 }
 
-.weather-snowy .sky-clouds-container {
-  opacity: 0.5;
+.firefly-particle {
+  position: absolute;
+  background: radial-gradient(circle, rgba(163, 230, 53, 0.9) 10%, rgba(132, 204, 22, 0.4) 40%, rgba(132, 204, 22, 0) 80%);
+  border-radius: 50%;
+  filter: drop-shadow(0 0 4px rgba(163, 230, 53, 0.8));
+  animation: fly-firefly var(--firefly-duration, 12s) ease-in-out infinite alternate;
+  animation-delay: var(--firefly-delay, 0s);
+  will-change: transform;
 }
+
+@keyframes fly-firefly {
+  0% { transform: translate3d(0, 80vh, 0) scale(0.7); opacity: 0; }
+  25%, 75% { opacity: 0.9; }
+  50% { transform: translate3d(var(--firefly-drift-x, 150px), var(--firefly-drift-y, 40vh), 0) scale(1.1); opacity: 0.2; }
+  100% { transform: translate3d(var(--firefly-drift-x2, 200px), var(--firefly-drift-y2, 10vh), 0) scale(0.8); opacity: 0; }
+}
+
+/* Parallax Cloud Formations */
+.sky-clouds-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0.15;
+  transition: opacity 3s ease;
+  z-index: -6;
+}
+
+.weather-partly_cloudy .sky-clouds-container { opacity: 0.45; }
+.weather-cloudy .sky-clouds-container,
+.weather-rainy .sky-clouds-container,
+.weather-stormy .sky-clouds-container { opacity: 0.88; }
+.weather-snowy .sky-clouds-container { opacity: 0.55; }
+.weather-foggy .sky-clouds-container { opacity: 0.25; }
 
 .sky-cloud {
   position: absolute;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.75), rgba(241, 245, 249, 0.45));
-  filter: blur(12px);
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.72), rgba(241, 245, 249, 0.4));
+  filter: blur(14px);
   border-radius: 100px;
   will-change: transform;
   animation: cloud-drift var(--drift-duration, 60s) linear infinite;
-  opacity: 0.6;
+  opacity: 0.65;
 }
 
 .weather-rainy .sky-cloud,
 .weather-stormy .sky-cloud {
-  background: linear-gradient(to bottom, rgba(71, 85, 105, 0.65), rgba(51, 65, 85, 0.35));
-  filter: blur(15px);
-  opacity: 0.75;
+  background: linear-gradient(to bottom, rgba(71, 85, 105, 0.68), rgba(51, 65, 85, 0.38));
+  filter: blur(16px);
+  opacity: 0.78;
 }
 
 @keyframes cloud-drift {
@@ -152,47 +334,76 @@
   to { transform: translate3d(100vw, 0, 0); }
 }
 
+/* Drifting Valley Mist (Foggy / Rainy states) */
+.sky-mist-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: -6; /* Drifts behind forest layer, in front of mountains */
+  opacity: 0;
+  transition: opacity 3s ease;
+}
+
+.weather-foggy .sky-mist-container { opacity: 0.9; }
+.weather-rainy .sky-mist-container,
+.weather-stormy .sky-mist-container { opacity: 0.55; }
+
+.mist-cloud {
+  position: absolute;
+  background: linear-gradient(to bottom, rgba(226, 232, 240, 0.45), rgba(203, 213, 225, 0.22));
+  filter: blur(28px);
+  border-radius: 50%;
+  animation: drift-mist var(--mist-duration, 40s) ease-in-out infinite alternate;
+  animation-delay: var(--mist-delay, 0s);
+  will-change: transform;
+}
+
+@keyframes drift-mist {
+  0% { transform: translate3d(-100px, 0, 0) scale(1); }
+  100% { transform: translate3d(200px, var(--mist-drift-y, 30px), 0) scale(1.3); }
+}
+
 /* Rain Effect */
 .sky-rain-container {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
   pointer-events: none;
   overflow: hidden;
+  z-index: -4;
 }
 
 .rain-drop {
   position: absolute;
-  background: linear-gradient(transparent, rgba(147, 197, 253, 0.4));
+  background: linear-gradient(transparent, rgba(147, 197, 253, 0.45));
   width: 1.5px;
-  height: 40px;
-  opacity: 0.6;
+  height: 45px;
+  opacity: 0.65;
   animation: fall-rain var(--rain-duration, 0.8s) linear infinite;
   animation-delay: var(--rain-delay, 0s);
   will-change: transform;
 }
 
 @keyframes fall-rain {
-  0% { transform: translate3d(0, -60px, 0) rotate(15deg); }
-  100% { transform: translate3d(150px, 105vh, 0) rotate(15deg); }
+  0% { transform: translate3d(0, -60px, 0) rotate(14deg); }
+  100% { transform: translate3d(150px, 105vh, 0) rotate(14deg); }
 }
 
 /* Snow Effect */
 .sky-snow-container {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
   pointer-events: none;
   overflow: hidden;
+  z-index: -4;
 }
 
 .snow-flake {
   position: absolute;
   background: #ffffff;
   border-radius: 50%;
-  opacity: 0.8;
+  opacity: 0.85;
+  filter: blur(0.2px);
   animation: fall-snow var(--snow-duration, 6s) linear infinite;
   animation-delay: var(--snow-delay, 0s);
   will-change: transform;
@@ -204,14 +415,14 @@
   100% { transform: translate3d(0, 105vh, 0); }
 }
 
-/* Storm / Lightning Overlay */
+/* Storm Lightning Flashes */
 .sky-lightning-flash {
   position: absolute;
   inset: 0;
   background: rgba(255, 255, 255, 0.95);
   opacity: 0;
   pointer-events: none;
-  z-index: -9;
+  z-index: -8;
 }
 
 .lightning-strike {
@@ -225,7 +436,60 @@
   30% { opacity: 0.8; }
 }
 
-/* --- STUDY VIBE SELECTOR WIDGET --- */
+/* ==========================================================================
+   FOREGROUND SWAYING WILDFLOWER MEADOW
+   ========================================================================== */
+.scenic-flower-container {
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  height: 120px;
+  z-index: -5; /* Placed behind content panels, but in front of mountain/forest backdrops */
+  pointer-events: none;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-end;
+  opacity: 0.92;
+  transition: filter 3s ease;
+}
+
+.scenic-flower {
+  width: 50px;
+  height: 95px;
+  transform-origin: bottom center;
+  animation: sway var(--sway-duration, 5s) ease-in-out infinite alternate;
+  animation-delay: var(--sway-delay, 0s);
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.16));
+  will-change: transform;
+}
+
+/* Ambient color grading for daisies to match daylight hours */
+.sky-dawn .scenic-flower {
+  filter: brightness(0.72) sepia(0.18) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.22));
+}
+
+.sky-day .scenic-flower {
+  filter: brightness(1) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.16));
+}
+
+.sky-dusk .scenic-flower {
+  filter: brightness(0.68) saturate(1.1) sepia(0.1) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.24));
+}
+
+.sky-night .scenic-flower {
+  filter: brightness(0.38) saturate(0.55) sepia(0.2) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+}
+
+@keyframes sway {
+  0% { transform: rotate(-5deg) scale(1); }
+  100% { transform: rotate(5deg) scale(1.02); }
+}
+
+/* ==========================================================================
+   STUDY VIBE SELECTOR PANEL (WIDGET)
+   ========================================================================== */
 .vibe-controller-trigger {
   position: fixed;
   bottom: 24px;
@@ -339,7 +603,6 @@
   box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
-/* Animations for Modal scale up (same as global modal) */
 @keyframes modalScaleUp {
   from {
     opacity: 0;
@@ -351,10 +614,9 @@
   }
 }
 
-/* Hide widget when scrolling down on small mobiles to avoid crowding */
 @media (max-width: 480px) {
   .vibe-controller-trigger {
-    bottom: 80px; /* shift up slightly to avoid overlapping bottom mobile nav */
+    bottom: 80px;
   }
   .vibe-card {
     bottom: 140px;
@@ -362,4 +624,35 @@
     left: 24px;
     right: 24px;
   }
+}
+
+/* ==========================================================================
+   AESTHETIC BACKDROP DEPTH MODES (MEADOW, AMBIENT SKY, MINIMAL SOLID)
+   ========================================================================== */
+
+/* 1. Atmospheric Sky Mode: Hides landscape vectors, mountain/forest backdrops, and daisies.
+   Retains celestial gradients, stars, clouds, valley mist, fog, and weather rain/snow particles. */
+.sky-background-root.mode-sky .layer-mountains,
+.sky-background-root.mode-sky .layer-forests,
+.sky-background-root.mode-sky .layer-meadow,
+.sky-background-root.mode-sky .scenic-flower-container {
+  display: none !important;
+}
+
+/* 2. Flat Minimal Mode: Completely hides all background overlays, stars, weather, clouds,
+   and visual details, leaving a solid, high-legibility flat background color. */
+.sky-background-root.mode-solid {
+  background: #090d16 !important; /* Premium Obsidian Slate base fallback */
+}
+
+/* Light mode solid background fallback */
+.theme-light-vibrant .sky-background-root.mode-solid {
+  background: #f8fafc !important; /* Premium Crisp Light base fallback */
+}
+
+/* Hide all dynamic sky/weather layers and particles in solid mode */
+.sky-background-root.mode-solid .parallax-layer,
+.sky-background-root.mode-solid .sky-lightning-flash,
+.sky-background-root.mode-solid .scenic-flower-container {
+  display: none !important;
 }

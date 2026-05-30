@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "framer-motion";
 import api from "../services/api";
 
 function QuestionBox({
@@ -128,7 +129,13 @@ function QuestionBox({
         ) : null}
         {!loading &&
           questions.map((item) => (
-            <article className="question-item" key={item._id}>
+            <motion.article 
+              className="question-item" 
+              key={item._id}
+              initial={{ opacity: 0, y: 16, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+            >
               <div className="item-head">
                 <strong>{item.userId?.name || "Unknown user"}</strong>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -218,7 +225,7 @@ function QuestionBox({
                   ) : null}
                 </>
               )}
-            </article>
+            </motion.article>
           ))}
       </div>
     </section>

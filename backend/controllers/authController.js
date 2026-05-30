@@ -88,7 +88,59 @@ const loginUser = async (req, res, next) => {
   }
 };
 
+const deleteProfile = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+
+    // Load Mongoose models inside the controller locally to avoid circular dependencies
+    const Group = require("../models/Group");
+    const Message = require("../models/Message");
+    const Question = require("../models/Question");
+    const PublicPost = require("../models/PublicPost");
+
+    // 1. Find all groups created by this user
+    const userGroups = await Group.find({ createdBy: userId });
+    const groupIds = userGroups.map((g) => g._id);
+
+    // 2. Cascade delete messages and questions inside those groups
+    await Message.deleteMany({ groupId: { $in: groupIds } });
+    await Question.deleteMany({ groupId: { $in: groupIds } });
+
+    // 3. Delete groups created by this user
+    await Group.deleteMany({ createdBy: userId });
+
+    // 4. Remove this user from the members list of other groups they joined
+    await Group.updateMany(
+      { members: userId },
+      { $pull: { members: userId } }
+    );
+
+    // 5. Delete individual messages and questions posted by this user in other groups
+    await Message.deleteMany({ sender: userId });
+    await Question.deleteMany({ userId: userId });
+
+    // 6. Delete all public posts created by this user
+    await PublicPost.deleteMany({ userId: userId });
+
+    // 7. Pull this user's likes from other public posts
+    await PublicPost.updateMany(
+      {},
+      { $pull: { likes: userId } }
+    );
+
+    // 8. Delete the User document itself
+    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({
+      message: "Profile and all associated data deleted successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
+  deleteProfile,
 };

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 
 import ChatBox from "../components/ChatBox";
 import QuestionBox from "../components/QuestionBox";
@@ -7,6 +7,7 @@ import api from "../services/api";
 
 function Group({ auth }) {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [group, setGroup] = useState(null);
   const [loadingGroup, setLoadingGroup] = useState(true);
   const [groupError, setGroupError] = useState("");
@@ -126,6 +127,20 @@ function Group({ auth }) {
     loadInitialData();
   }, [loadInitialData]);
 
+  const handleDeleteGroup = async () => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this study circle permanently? This will remove all members, messages, and questions. This action is irreversible!"
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await api.delete(`/groups/${id}`);
+      navigate("/home");
+    } catch (apiError) {
+      alert(apiError.response?.data?.message || "Unable to delete group. Please try again.");
+    }
+  };
+
   const handleChatChange = (event) => {
     const { name, value } = event.target;
     setChatForm((prev) => ({ ...prev, [name]: value }));
@@ -208,10 +223,26 @@ function Group({ auth }) {
                 {group.role === "teacher" ? "Teacher-led group" : "Student-led group"}
               </span>
               <h1>{group.groupName}</h1>
-              <div className="inline-actions" style={{ marginTop: "14px" }}>
+              <div className="inline-actions" style={{ marginTop: "14px", display: "flex", gap: "10px", alignItems: "center" }}>
                 <Link className="btn-ghost" state={{ transition: "back" }} to="/home" title="Return to the public Home Feed page">
                   Back to home
                 </Link>
+                {group && (group.createdBy?._id || group.createdBy) === auth?.user?.id && (
+                  <button
+                    className="btn"
+                    onClick={handleDeleteGroup}
+                    style={{
+                      background: "rgba(239, 68, 68, 0.12)",
+                      color: "var(--danger)",
+                      border: "1px solid rgba(239, 68, 68, 0.3)",
+                      padding: "8px 16px",
+                      fontSize: "0.85rem"
+                    }}
+                    title="Permanently delete this study circle (Owner only)"
+                  >
+                    🗑️ Delete Circle
+                  </button>
+                )}
               </div>
             </div>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import ProfileAvatar from "../components/ProfileAvatar";
 import api from "../services/api";
@@ -9,7 +9,8 @@ import {
   saveProfileForUser,
 } from "../utils/profile";
 
-function Profile({ auth, onUserUpdate }) {
+function Profile({ auth, onUserUpdate, onLogout }) {
+  const navigate = useNavigate();
   const [profileForm, setProfileForm] = useState(() => getProfileFormState(auth.user));
   const [groups, setGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
@@ -85,6 +86,26 @@ function Profile({ auth, onUserUpdate }) {
     const nextUser = saveProfileForUser(auth.user, updates);
     onUserUpdate(nextUser);
     setSaveMessage("Profile preferences saved on this device.");
+  };
+
+  const handleDeleteProfile = async () => {
+    const confirm1 = window.confirm(
+      "Are you sure you want to delete your profile? This will permanently delete your account, posts, questions, and remove you from all study circles. This action CANNOT be undone."
+    );
+    if (!confirm1) return;
+
+    const confirm2 = window.confirm(
+      "DOUBLE CONFIRMATION REQUIRED:\n\nAll your study circles, messages, questions, and public posts will be deleted. Are you absolutely certain you want to proceed?"
+    );
+    if (!confirm2) return;
+
+    try {
+      await api.delete("/auth/profile");
+      onLogout();
+      navigate("/");
+    } catch (apiError) {
+      alert(apiError.response?.data?.message || "Unable to delete profile. Please try again.");
+    }
   };
 
   return (
@@ -321,13 +342,29 @@ function Profile({ auth, onUserUpdate }) {
 
             {saveMessage ? <div className="success-banner">{saveMessage}</div> : null}
 
-            <div className="form-actions">
-              <button className="btn" type="submit">
-                Save profile
+            <div className="form-actions" style={{ display: "flex", gap: "10px", alignItems: "center", width: "100%", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button className="btn" type="submit">
+                  Save profile
+                </button>
+                <Link className="btn-ghost" state={{ transition: "back" }} to="/home">
+                  Done
+                </Link>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleDeleteProfile}
+                style={{
+                  background: "rgba(239, 68, 68, 0.12)",
+                  color: "var(--danger)",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  padding: "10px 20px"
+                }}
+                title="Permanently delete your StudyCircle profile and all associated data"
+              >
+                🗑️ Delete Account
               </button>
-              <Link className="btn-ghost" state={{ transition: "back" }} to="/home">
-                Done
-              </Link>
             </div>
           </form>
         </section>

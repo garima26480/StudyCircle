@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../services/api";
+import DeskClockCalendar from "../components/DeskClockCalendar";
 
 const formatTimeAgo = (dateString) => {
   const date = new Date(dateString);
@@ -266,6 +267,7 @@ export default function Home({ auth, onLogout }) {
 
         {/* Right Side: Trending Feed Tags & Guidelines */}
         <div className="utility-panel-column" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <DeskClockCalendar />
           {/* Trending Topics Widget */}
           <section className="panel" style={{ padding: "20px" }}>
             <h3 style={{ margin: "0 0 14px", fontSize: "1.1rem", fontWeight: "800", borderBottom: "1px solid var(--border)", paddingBottom: "10px" }}>
